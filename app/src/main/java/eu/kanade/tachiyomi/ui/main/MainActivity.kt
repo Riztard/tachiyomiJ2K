@@ -18,6 +18,7 @@ import android.view.ViewGroup
 import android.view.WindowInsets
 import android.view.WindowManager
 import android.webkit.WebView
+import android.widget.Toast
 import androidx.appcompat.graphics.drawable.DrawerArrowDrawable
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.ColorUtils
@@ -105,6 +106,8 @@ open class MainActivity : BaseActivity(), DownloadServiceListener {
     private val updateChecker by lazy { UpdateChecker.getUpdateChecker() }
     private val isUpdaterEnabled = BuildConfig.INCLUDE_UPDATER
 
+    private var isConfirmingExit: Boolean = false
+
     fun setUndoSnackBar(snackBar: Snackbar?, extraViewToCheck: View? = null) {
         this.snackBar = snackBar
         canDismissSnackBar = false
@@ -137,6 +140,7 @@ open class MainActivity : BaseActivity(), DownloadServiceListener {
         }
         gestureDetector = GestureDetectorCompat(this, GestureListener())
 
+        // setContentView(binding.root)
         setContentView(R.layout.main_activity)
 
         setSupportActionBar(toolbar)
@@ -493,9 +497,31 @@ open class MainActivity : BaseActivity(), DownloadServiceListener {
         if (if (router.backstackSize == 1) !(sheetController?.handleSheetBack() ?: false)
             else !router.handleBack()
         ) {
+            if (shouldHandleExitConfirmation()) {
+                // Exit confirmation (resets after 2 seconds)
+                launchUI { resetExitConfirmation() }
+            } else if (router.backstackSize == 1 || !router.handleBack()) {
+                // Regular back
             SecureActivityDelegate.locked = true
-            super.onBackPressed()
+            super.onBackPressed() }
         }
+    }
+
+    private suspend fun resetExitConfirmation() {
+        isConfirmingExit = true
+        val toast = Toast.makeText(this, R.string.confirm_exit, Toast.LENGTH_LONG)
+        toast.show()
+
+        delay(2000)
+
+        toast.cancel()
+        isConfirmingExit = false
+    }
+
+    private fun shouldHandleExitConfirmation(): Boolean {
+        return router.backstackSize == 1 &&
+                preferences.confirmExit() &&
+                !isConfirmingExit
     }
 
     private fun setRoot(controller: Controller, id: Int) {
