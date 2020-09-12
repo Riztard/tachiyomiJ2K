@@ -16,10 +16,15 @@
         app:showAsAction="ifRoom" />
 
     <item
+        android:id="@+id/action_download_unread"
+        android:title="@string/download_unread"
+        app:showAsAction="never" />
+
+    <item
         android:id="@+id/action_migrate"
         android:icon="@drawable/ic_swap_calls_24dp"
         android:title="@string/source_migration"
-        app:showAsAction="ifRoom" />
+        app:showAsAction="never" />
 
     <item
         android:id="@+id/action_share"

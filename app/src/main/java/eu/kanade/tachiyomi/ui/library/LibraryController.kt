@@ -1325,6 +1325,10 @@ class LibraryController(
                         deleteMangasFromLibrary()
                     }.negativeButton(android.R.string.no).show()
             }
+            R.id.action_download_unread -> {
+                presenter.downloadUnread(selectedMangas.toList())
+            }
+
             R.id.action_migrate -> {
                 val skipPre = preferences.skipPreMigration().getOrDefault()
                 PreMigrationController.navigateToMigration(skipPre,

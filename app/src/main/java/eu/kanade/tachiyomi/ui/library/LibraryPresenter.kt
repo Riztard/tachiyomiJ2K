@@ -862,6 +862,21 @@ class LibraryPresenter(
         getLibrary()
     }
 
+    /** download All unread */
+    fun downloadUnread(mangaList: List<Manga>) {
+        scope.launch {
+            withContext(Dispatchers.IO) {
+                mangaList.forEach {
+                    val chapters = db.getChapters(it).executeAsBlocking().filter { !it.read }
+                    downloadManager.downloadChapters(it, chapters)
+                }
+            }
+            if (preferences.downloadBadge().getOrDefault()) {
+                requestDownloadBadgesUpdate()
+            }
+        }
+    }
+
     companion object {
         private var lastLibraryItems: List<LibraryItem>? = null
         private var lastCategories: List<Category>? = null
