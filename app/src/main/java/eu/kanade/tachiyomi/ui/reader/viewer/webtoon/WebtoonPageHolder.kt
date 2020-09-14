@@ -4,7 +4,6 @@ import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.res.Resources
 import android.graphics.Color
-import android.net.Uri
 import android.view.Gravity
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
@@ -15,6 +14,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.widget.AppCompatButton
 import androidx.appcompat.widget.AppCompatImageView
+import androidx.core.net.toUri
 import coil.api.clear
 import coil.api.loadAny
 import coil.request.CachePolicy
@@ -451,14 +451,14 @@ class WebtoonPageHolder(
         }
 
         val imageUrl = page?.imageUrl
-        if (imageUrl.orEmpty().startsWith("http")) {
+        if (imageUrl != null && imageUrl.startsWith("http")) {
             AppCompatButton(context).apply {
                 layoutParams = FrameLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
                     setMargins(0, margins, 0, margins)
                 }
                 setText(R.string.open_in_browser)
                 setOnClickListener {
-                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(imageUrl))
+                    val intent = Intent(Intent.ACTION_VIEW, imageUrl.toUri())
                     context.startActivity(intent)
                 }
 

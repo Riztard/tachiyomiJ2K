@@ -1,6 +1,6 @@
 package eu.kanade.tachiyomi.data.track.anilist
 
-import android.net.Uri
+import androidx.core.net.toUri
 import com.github.salomonbrys.kotson.array
 import com.github.salomonbrys.kotson.get
 import com.github.salomonbrys.kotson.jsonObject
@@ -19,6 +19,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
+import timber.log.Timber
 import java.util.Calendar
 import java.util.concurrent.TimeUnit
 
@@ -128,6 +129,29 @@ class AnilistApi(val client: OkHttpClient, interceptor: AnilistInterceptor) {
         }
     }
 
+    suspend fun remove(track: Track): Boolean {
+        return withContext(Dispatchers.IO) {
+            try {
+
+                val variables = jsonObject(
+                    "listId" to track.library_id
+                )
+                val payload = jsonObject(
+                    "query" to deleteFromLibraryQuery(),
+                    "variables" to variables
+                )
+
+                val body = payload.toString().toRequestBody(MediaType.jsonType())
+                val request = Request.Builder().url(apiUrl).post(body).build()
+                val result = authClient.newCall(request).execute()
+                return@withContext true
+            } catch (e: Exception) {
+                Timber.w(e)
+            }
+            return@withContext false
+        }
+    }
+
     fun createOAuth(token: String): OAuth {
         return OAuth(
             token,
@@ -208,7 +232,7 @@ class AnilistApi(val client: OkHttpClient, interceptor: AnilistInterceptor) {
             return baseMangaUrl + mediaId
         }
 
-        fun authUrl() = Uri.parse("${baseUrl}oauth/authorize").buildUpon()
+        fun authUrl() = "${baseUrl.toUri()}oauth/authorize".toUri().buildUpon()
             .appendQueryParameter("client_id", clientId)
             .appendQueryParameter("response_type", "token")
             .build()!!
@@ -221,6 +245,14 @@ class AnilistApi(val client: OkHttpClient, interceptor: AnilistInterceptor) {
                 |} 
             |}
             |""".trimMargin()
+
+        fun deleteFromLibraryQuery() = """
+                |mutation DeleteManga(${'$'}listId: Int) {
+                |DeleteMediaListEntry (id: ${'$'}listId) {
+                    |deleted
+
+                |}
+            |}""".trimMargin()
 
         fun updateInLibraryQuery() = """
             |mutation UpdateManga(${'$'}listId: Int, ${'$'}progress: Int, ${'$'}status: MediaListStatus, ${'$'}score: Int) {

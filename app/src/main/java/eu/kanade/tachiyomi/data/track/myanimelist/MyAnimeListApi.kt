@@ -1,6 +1,6 @@
 package eu.kanade.tachiyomi.data.track.myanimelist
 
-import android.net.Uri
+import androidx.core.net.toUri
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.TrackManager
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
@@ -23,6 +23,7 @@ import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import org.jsoup.parser.Parser
+import timber.log.Timber
 
 class MyAnimeListApi(private val client: OkHttpClient, interceptor: MyAnimeListInterceptor) {
 
@@ -40,18 +41,18 @@ class MyAnimeListApi(private val client: OkHttpClient, interceptor: MyAnimeListI
                     .select("tbody").select("tr").drop(1)
 
                 matches.filter { row -> row.select(TD)[2].text() != "Novel" }.map { row ->
-                        TrackSearch.create(TrackManager.MYANIMELIST).apply {
-                            title = row.searchTitle()
-                            media_id = row.searchMediaId()
-                            total_chapters = row.searchTotalChapters()
-                            summary = row.searchSummary()
-                            cover_url = row.searchCoverUrl()
-                            tracking_url = mangaUrl(media_id)
-                            publishing_status = row.searchPublishingStatus()
-                            publishing_type = row.searchPublishingType()
-                            start_date = row.searchStartDate()
-                        }
-                    }.toList()
+                    TrackSearch.create(TrackManager.MYANIMELIST).apply {
+                        title = row.searchTitle()
+                        media_id = row.searchMediaId()
+                        total_chapters = row.searchTotalChapters()
+                        summary = row.searchSummary()
+                        cover_url = row.searchCoverUrl()
+                        tracking_url = mangaUrl(media_id)
+                        publishing_status = row.searchPublishingStatus()
+                        publishing_type = row.searchPublishingType()
+                        start_date = row.searchStartDate()
+                    }
+                }.toList()
             }
         }
     }
@@ -69,6 +70,16 @@ class MyAnimeListApi(private val client: OkHttpClient, interceptor: MyAnimeListI
     suspend fun updateLibManga(track: Track): Track {
         authClient.newCall(POST(url = updateUrl(), body = mangaPostPayload(track))).await()
         return track
+    }
+
+    suspend fun remove(track: Track): Boolean {
+        try {
+            authClient.newCall(POST(url = removeUrl(track.media_id))).await()
+            return true
+        } catch (e: Exception) {
+            Timber.w(e)
+        }
+        return false
     }
 
     suspend fun findLibManga(track: Track): Track? {
@@ -133,16 +144,16 @@ class MyAnimeListApi(private val client: OkHttpClient, interceptor: MyAnimeListI
         val results = getListXml(getListUrl()).select("manga")
 
         return results.map {
-                TrackSearch.create(TrackManager.MYANIMELIST).apply {
-                    title = it.selectText("manga_title")!!
-                    media_id = it.selectInt("manga_mangadb_id")
-                    last_chapter_read = it.selectInt("my_read_chapters")
-                    status = getStatus(it.selectText("my_status")!!)
-                    score = it.selectInt("my_score").toFloat()
-                    total_chapters = it.selectInt("manga_chapters")
-                    tracking_url = mangaUrl(media_id)
-                }
-            }.toList()
+            TrackSearch.create(TrackManager.MYANIMELIST).apply {
+                title = it.selectText("manga_title")!!
+                media_id = it.selectInt("manga_mangadb_id")
+                last_chapter_read = it.selectInt("my_read_chapters")
+                status = getStatus(it.selectText("my_status")!!)
+                score = it.selectInt("my_score").toFloat()
+                total_chapters = it.selectInt("manga_chapters")
+                tracking_url = mangaUrl(media_id)
+            }
+        }.toList()
     }
 
     private suspend fun getListUrl(): String {
@@ -171,28 +182,31 @@ class MyAnimeListApi(private val client: OkHttpClient, interceptor: MyAnimeListI
 
         private fun mangaUrl(remoteId: Int) = baseMangaUrl + remoteId
 
-        private fun loginUrl() = Uri.parse(baseUrl).buildUpon().appendPath("login.php").toString()
+        private fun loginUrl() = baseUrl.toUri().buildUpon().appendPath("login.php").toString()
 
         private fun searchUrl(query: String): String {
             val col = "c[]"
-            return Uri.parse(baseUrl).buildUpon().appendPath("manga.php")
+            return baseUrl.toUri().buildUpon().appendPath("manga.php")
                 .appendQueryParameter("q", query).appendQueryParameter(col, "a")
                 .appendQueryParameter(col, "b").appendQueryParameter(col, "c")
                 .appendQueryParameter(col, "d").appendQueryParameter(col, "e")
                 .appendQueryParameter(col, "g").toString()
         }
 
-        private fun exportListUrl() = Uri.parse(baseUrl).buildUpon().appendPath("panel.php")
+        private fun exportListUrl() = baseUrl.toUri().buildUpon().appendPath("panel.php")
             .appendQueryParameter("go", "export").toString()
 
         private fun updateUrl() =
-            Uri.parse(baseModifyListUrl).buildUpon().appendPath("edit.json").toString()
+            baseModifyListUrl.toUri().buildUpon().appendPath("edit.json").toString()
+
+        private fun removeUrl(mediaId: Int) = baseModifyListUrl.toUri().buildUpon().appendPath(mediaId.toString())
+            .appendPath("delete").toString()
 
         private fun addUrl() =
-            Uri.parse(baseModifyListUrl).buildUpon().appendPath("add.json").toString()
+            baseModifyListUrl.toUri().buildUpon().appendPath("add.json").toString()
 
         private fun listEntryUrl(mediaId: Int) =
-            Uri.parse(baseModifyListUrl).buildUpon().appendPath(mediaId.toString())
+            baseModifyListUrl.toUri().buildUpon().appendPath(mediaId.toString())
                 .appendPath("edit").toString()
 
         private fun loginPostBody(username: String, password: String, csrf: String): RequestBody {

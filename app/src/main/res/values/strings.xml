@@ -48,6 +48,7 @@
     <string name="marked_as_unread">Marked as unread</string>
     <string name="removed_bookmark">Removed bookmark</string>
     <string name="chapters_removed">Chapters removed.</string>
+    <string name="chapter_not_found">Chapter not found</string>
     <plurals name="remove_n_chapters">
         <item quantity="one">Remove %1$d downloaded chapter?</item>
         <item quantity="other">Remove %1$d downloaded chapters?</item>
@@ -288,7 +289,7 @@
     <!-- Reader settings -->
     <string name="fullscreen">Fullscreen</string>
     <string name="page_transitions">Page transitions</string>
-    <string name="disable_zoom">Disable zoom</string>
+    <string name="enable_zoom_out">Enable zoom out</string>
     <string name="double_tap_anim_speed">Double tap animation speed</string>
     <string name="show_page_number">Show page number</string>
     <string name="true_32bit_color">32-bit color</string>
@@ -421,6 +422,8 @@
     <string name="url_not_set_click_again">Manga URL not set, please click title and select manga again</string>
     <string name="refresh_tracking">Refresh tracking</string>
     <string name="add_tracking">Add tracking</string>
+    <string name="remove_tracking">Remove tracking from app</string>
+    <string name="remove_tracking_from_">Also remove from %1$s</string>
 
     <!-- Migration -->
     <string name="select_sources">Select sources</string>
@@ -524,6 +527,10 @@
 
     <!-- Advanced section -->
     <string name="clear_chapter_cache">Clear chapter cache</string>
+    <string name="data_management">Data Management</string>
+    <string name="network">Network</string>
+    <string name="dns_over_https" translatable="false">DNS over HTTPS (Cloudflare)</string>
+    <string name="requires_app_restart">Requires app restart to take effect</string>
     <string name="used_">Used: %1$s</string>
     <plurals name="cache_cleared">
         <item quantity="one">Cache cleared. %d file has been deleted</item>
@@ -543,6 +550,9 @@
     <string name="clean_up_downloaded_chapters">Clean up downloaded chapters</string>
     <string name="delete_unused_chapters">Delete non-existent, partially downloaded,
             and read chapter folders</string>
+    <string name="clean_orphaned_downloads">Clean orphaned</string>
+    <string name="clean_read_downloads">Clean read</string>
+    <string name="clean_read_manga_not_in_library">Clean manga not in library</string>
     <string name="starting_cleanup">Starting cleanup</string>
     <string name="no_folders_to_cleanup">No folders to cleanup</string>
     <string name="disable_battery_optimization">Disable battery optimization</string>
@@ -556,6 +566,9 @@
     <string name="clean_up_cached_covers">Clean up cached covers</string>
     <string name="delete_old_covers_in_library_used_">Delete old and unused cached covers of
         manga in your library that has been updated.\nCurrently using: %1$s</string>
+    <string name="clear_cached_covers_non_library">Clear cached covers not in library</string>
+    <string name="delete_all_covers__not_in_library_used_">Delete all covers cached that are
+        not in your library \nCurrently using: %1$s</string>
 
     <!-- Browse Settings -->
     <string name="pref_global_search">Global search</string>
@@ -582,7 +595,7 @@
     <string name="website">Website</string>
     <string name="open_source_licenses">Open source licenses</string>
 
-    <!-- Login dialog -->
+    <!-- Login/Logout dialog -->
     <string name="log_in_to_">Log in to %1$s</string>
     <string name="username">Username</string>
     <string name="email">Email address</string>
@@ -590,7 +603,11 @@
     <string name="show_password">Show password</string>
     <string name="login">Login</string>
     <string name="logout">Logout</string>
+    <string name="logout_from_">Logout from %1$s?</string>
+
     <string name="successfully_logged_in">Successfully logged in</string>
+    <string name="username_must_not_be_blank">Username or password cannot be blank</string>
+
     <string name="successfully_logged_out">You are now logged out</string>
     <string name="could_not_log_in">Could not log in</string>
 

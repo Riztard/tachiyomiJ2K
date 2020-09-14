@@ -7,7 +7,6 @@ import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.PointF
 import android.graphics.drawable.Drawable
-import android.net.Uri
 import android.view.GestureDetector
 import android.view.Gravity
 import android.view.MotionEvent
@@ -18,6 +17,7 @@ import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.core.net.toUri
 import coil.api.loadAny
 import coil.request.CachePolicy
 import com.davemorrissey.labs.subscaleview.ImageSource
@@ -288,7 +288,9 @@ class PagerPageHolder(
             }
             // Keep the Rx stream alive to close the input stream only when unsubscribed
             .flatMap { Observable.never<Unit>() }
-            .doOnUnsubscribe { openStream?.close() }
+            .doOnUnsubscribe {
+                try { openStream?.close() } catch (e: Exception) {}
+            }
             .subscribe({}, {})
     }
 
@@ -458,14 +460,14 @@ class PagerPageHolder(
         }
 
         val imageUrl = page.imageUrl
-        if (imageUrl.orEmpty().startsWith("http", true)) {
+        if (imageUrl != null && imageUrl.startsWith("http", true)) {
             PagerButton(context, viewer).apply {
                 layoutParams = LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
                     setMargins(margins, margins, margins, margins)
                 }
                 setText(R.string.open_in_browser)
                 setOnClickListener {
-                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(imageUrl))
+                    val intent = Intent(Intent.ACTION_VIEW, imageUrl.toUri())
                     context.startActivity(intent)
                 }
 

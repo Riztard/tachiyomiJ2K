@@ -31,12 +31,12 @@ import com.google.android.material.snackbar.Snackbar
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.database.models.Chapter
 import eu.kanade.tachiyomi.data.database.models.Manga
-import eu.kanade.tachiyomi.data.notification.NotificationReceiver
-import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.ui.base.MaterialMenuSheet
 import eu.kanade.tachiyomi.ui.base.activity.BaseRxActivity
+import eu.kanade.tachiyomi.ui.main.MainActivity
+import eu.kanade.tachiyomi.ui.main.SearchActivity
 import eu.kanade.tachiyomi.ui.reader.ReaderPresenter.SetAsCoverResult.AddToLibraryFirst
 import eu.kanade.tachiyomi.ui.reader.ReaderPresenter.SetAsCoverResult.Error
 import eu.kanade.tachiyomi.ui.reader.ReaderPresenter.SetAsCoverResult.Success
@@ -58,6 +58,7 @@ import eu.kanade.tachiyomi.util.system.getResourceColor
 import eu.kanade.tachiyomi.util.system.hasSideNavBar
 import eu.kanade.tachiyomi.util.system.isBottomTappable
 import eu.kanade.tachiyomi.util.system.launchUI
+import eu.kanade.tachiyomi.util.system.openInBrowser
 import eu.kanade.tachiyomi.util.system.toast
 import eu.kanade.tachiyomi.util.view.collapse
 import eu.kanade.tachiyomi.util.view.doOnApplyWindowInsets
@@ -72,12 +73,15 @@ import eu.kanade.tachiyomi.widget.SimpleAnimationListener
 import eu.kanade.tachiyomi.widget.SimpleSeekBarListener
 import kotlinx.android.synthetic.main.reader_activity.*
 import kotlinx.android.synthetic.main.reader_chapters_sheet.*
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.sample
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import me.zhanghai.android.systemuihelper.SystemUiHelper
 import nucleus.factory.RequiresPresenter
 import timber.log.Timber
@@ -126,6 +130,8 @@ class ReaderActivity : BaseRxActivity<ReaderPresenter>(),
 
     private var coroutine: Job? = null
 
+    var fromUrl = false
+
     /**
      * System UI helper to hide status & navigation bar on all different API levels.
      */
@@ -153,6 +159,8 @@ class ReaderActivity : BaseRxActivity<ReaderPresenter>(),
 
     private var snackbar: Snackbar? = null
 
+    var intentPageNumber: Int? = null
+
     companion object {
         @Suppress("unused")
         const val LEFT_TO_RIGHT = 1
@@ -161,8 +169,7 @@ class ReaderActivity : BaseRxActivity<ReaderPresenter>(),
         const val WEBTOON = 4
         const val VERTICAL_PLUS = 5
 
-        fun newIntent(context: Context, manga: Manga, chapter: Chapter):
-            Intent {
+        fun newIntent(context: Context, manga: Manga, chapter: Chapter): Intent {
             val intent = Intent(context, ReaderActivity::class.java)
             intent.putExtra("manga", manga.id)
             intent.putExtra("chapter", chapter.id)
@@ -194,15 +201,18 @@ class ReaderActivity : BaseRxActivity<ReaderPresenter>(),
         }
 
         if (presenter.needsInit()) {
-            val manga = intent.extras!!.getLong("manga", -1)
-            val chapter = intent.extras!!.getLong("chapter", -1)
-            if (manga == -1L || chapter == -1L) {
-                finish()
-                return
+            fromUrl = handleIntentAction(intent)
+            if (!fromUrl) {
+                val manga = intent.extras!!.getLong("manga", -1)
+                val chapter = intent.extras!!.getLong("chapter", -1)
+                if (manga == -1L || chapter == -1L) {
+                    finish()
+                    return
+                }
+                presenter.init(manga, chapter)
+            } else {
+                please_wait.visible()
             }
-            NotificationReceiver.dismissNotification(this, manga.hashCode(), Notifications.ID_NEW_CHAPTERS)
-
-            presenter.init(manga, chapter)
         }
 
         if (savedInstanceState != null) {
@@ -286,6 +296,19 @@ class ReaderActivity : BaseRxActivity<ReaderPresenter>(),
         return true
     }
 
+    private fun popToMain() {
+        presenter.onBackPressed()
+        if (fromUrl) {
+            val intent = Intent(this, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            }
+            startActivity(intent)
+            finishAfterTransition()
+        } else {
+            finish()
+        }
+    }
+
     /**
      * Called when the user clicks the back key or the button on the toolbar. The call is
      * delegated to the presenter.
@@ -296,7 +319,7 @@ class ReaderActivity : BaseRxActivity<ReaderPresenter>(),
             return
         }
         presenter.onBackPressed()
-        super.onBackPressed()
+        finish()
     }
 
     /**
@@ -329,7 +352,14 @@ class ReaderActivity : BaseRxActivity<ReaderPresenter>(),
         window.statusBarColor = Color.TRANSPARENT
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         toolbar.setNavigationOnClickListener {
-            onBackPressed()
+            popToMain()
+        }
+
+        toolbar.setOnClickListener {
+            presenter.manga?.id?.let { id ->
+                val intent = SearchActivity.openMangaIntent(this, id)
+                startActivity(intent)
+            }
         }
 
         // Init listeners on bottom menu
@@ -490,6 +520,11 @@ class ReaderActivity : BaseRxActivity<ReaderPresenter>(),
         please_wait.startAnimation(AnimationUtils.loadAnimation(this, R.anim.fade_in_long))
     }
 
+    override fun onPause() {
+        presenter.saveProgress()
+        super.onPause()
+    }
+
     /**
      * Called from the presenter whenever a new [viewerChapters] have been set. It delegates the
      * method to the current viewer, but also set the subtitle on the toolbar.
@@ -497,6 +532,8 @@ class ReaderActivity : BaseRxActivity<ReaderPresenter>(),
     fun setChapters(viewerChapters: ViewerChapters) {
         please_wait.gone()
         viewer?.setChapters(viewerChapters)
+        intentPageNumber?.let { moveToPageIndex(it) }
+        intentPageNumber = null
         toolbar.subtitle = viewerChapters.currChapter.chapter.name
     }
 
@@ -555,8 +592,7 @@ class ReaderActivity : BaseRxActivity<ReaderPresenter>(),
         // Set seekbar page number
         page_text.text = "${page.number} / ${pages.size}"
 
-        if (!newChapter && chapters_bottom_sheet.shouldCollapse && chapters_bottom_sheet
-            .sheetBehavior.isExpanded()) {
+        if (!newChapter && chapters_bottom_sheet.shouldCollapse && chapters_bottom_sheet.sheetBehavior.isExpanded()) {
             chapters_bottom_sheet.sheetBehavior?.collapse()
         }
         if (chapters_bottom_sheet.selectedChapterId != page.chapter.chapter.id) {
@@ -577,11 +613,9 @@ class ReaderActivity : BaseRxActivity<ReaderPresenter>(),
         val items = listOf(
             MaterialMenuSheet.MenuSheetItem(
                 0, R.drawable.ic_photo_24dp, R.string.set_as_cover
-            ),
-            MaterialMenuSheet.MenuSheetItem(
+            ), MaterialMenuSheet.MenuSheetItem(
                 1, R.drawable.ic_share_24dp, R.string.share
-            ),
-            MaterialMenuSheet.MenuSheetItem(
+            ), MaterialMenuSheet.MenuSheetItem(
                 2, R.drawable.ic_save_24dp, R.string.save
             )
         )
@@ -634,13 +668,10 @@ class ReaderActivity : BaseRxActivity<ReaderPresenter>(),
     fun showSetCoverPrompt(page: ReaderPage) {
         if (page.status != Page.READY) return
 
-        MaterialDialog(this)
-            .title(R.string.use_image_as_cover)
+        MaterialDialog(this).title(R.string.use_image_as_cover)
             .positiveButton(android.R.string.yes) {
                 setAsCover(page)
-            }
-            .negativeButton(android.R.string.no)
-            .show()
+            }.negativeButton(android.R.string.no).show()
     }
 
     /**
@@ -655,8 +686,7 @@ class ReaderActivity : BaseRxActivity<ReaderPresenter>(),
             DecimalFormat("#.###", DecimalFormatSymbols().apply { decimalSeparator = '.' })
 
         val text = "${manga.title}: ${getString(
-            R.string.chapter_,
-            decimalFormat.format(chapter.chapter_number)
+            R.string.chapter_, decimalFormat.format(chapter.chapter_number)
         )}, ${getString(R.string.page_, page.number)}"
 
         val stream = file.getUriCompat(this)
@@ -726,7 +756,8 @@ class ReaderActivity : BaseRxActivity<ReaderPresenter>(),
                         setMenuVisibility(false)
                     }
                 }
-                if (sheetManageNavColor) window.navigationBarColor = getResourceColor(R.attr.colorSecondary)
+                if (sheetManageNavColor) window.navigationBarColor =
+                    getResourceColor(R.attr.colorSecondary)
                 reader_menu.visible()
                 val toolbarAnimation = AnimationUtils.loadAnimation(this, R.anim.enter_from_top)
                 toolbarAnimation.setAnimationListener(object : SimpleAnimationListener() {
@@ -758,6 +789,27 @@ class ReaderActivity : BaseRxActivity<ReaderPresenter>(),
                     WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_NEVER
             }
         }
+    }
+
+    private fun handleIntentAction(intent: Intent): Boolean {
+        val uri = intent.data ?: return false
+        if (!presenter.canLoadUrl(uri)) {
+            openInBrowser(intent.data!!.toString(), true)
+            finishAfterTransition()
+            return true
+        }
+        setMenuVisibility(visible = false, animate = true)
+        scope.launch(Dispatchers.IO) {
+            try {
+                intentPageNumber = presenter.intentPageNumber(uri)
+                presenter.loadChapterURL(uri)
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    setInitialChapterError(e)
+                }
+            }
+        }
+        return true
     }
 
     fun openMangaInBrowser() {

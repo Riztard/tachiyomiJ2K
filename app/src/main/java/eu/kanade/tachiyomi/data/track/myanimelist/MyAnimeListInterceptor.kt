@@ -3,7 +3,7 @@ package eu.kanade.tachiyomi.data.track.myanimelist
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import okhttp3.Interceptor
 import okhttp3.Request
 import okhttp3.RequestBody
@@ -17,11 +17,21 @@ class MyAnimeListInterceptor(private val myanimelist: MyAnimeList) : Interceptor
     val scope = CoroutineScope(Job() + Dispatchers.Main)
 
     override fun intercept(chain: Interceptor.Chain): Response {
-        scope.launch {
+        runBlocking {
             myanimelist.ensureLoggedIn()
         }
         val request = chain.request()
-        return chain.proceed(updateRequest(request))
+        var response = chain.proceed(updateRequest(request))
+
+        if (response.code == 400) {
+            runBlocking {
+                myanimelist.refreshLogin()
+            }
+            response.close()
+            response = chain.proceed(updateRequest(request))
+        }
+
+        return response
     }
 
     private fun updateRequest(request: Request): Request {

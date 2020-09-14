@@ -1,10 +1,10 @@
 package eu.kanade.tachiyomi.ui.manga.track
 
 import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import android.view.View
 import android.view.ViewGroup
+import androidx.core.net.toUri
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
@@ -24,7 +24,8 @@ class TrackingBottomSheet(private val controller: MangaDetailsController) : Bott
     TrackAdapter.OnClickListener,
     SetTrackStatusDialog.Listener,
     SetTrackChaptersDialog.Listener,
-    SetTrackScoreDialog.Listener {
+    SetTrackScoreDialog.Listener,
+    TrackRemoveDialog.Listener {
 
     val activity = controller.activity!!
 
@@ -116,7 +117,7 @@ class TrackingBottomSheet(private val controller: MangaDetailsController) : Bott
         if (track.tracking_url.isBlank()) {
             activity.toast(R.string.url_not_set_click_again)
         } else {
-            activity.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(track.tracking_url)))
+            activity.startActivity(Intent(Intent.ACTION_VIEW, track.tracking_url.toUri()))
             controller.refreshTracker = position
         }
     }
@@ -143,6 +144,18 @@ class TrackingBottomSheet(private val controller: MangaDetailsController) : Bott
         }
 
         SetTrackStatusDialog(this, item).showDialog(controller.router)
+    }
+
+    override fun onRemoveClick(position: Int) {
+        val item = adapter?.getItem(position) ?: return
+        if (item.track == null) return
+
+        if (controller.isNotOnline()) {
+            dismiss()
+            return
+        }
+
+        TrackRemoveDialog(this, item).showDialog(controller.router)
     }
 
     override fun onChaptersClick(position: Int) {
@@ -195,6 +208,11 @@ class TrackingBottomSheet(private val controller: MangaDetailsController) : Bott
     override fun setChaptersRead(item: TrackItem, chaptersRead: Int) {
         presenter.setLastChapterRead(item, chaptersRead)
         refreshItem(item)
+    }
+
+    override fun removeTracker(item: TrackItem, fromServiceAlso: Boolean) {
+        refreshTrack(item.service)
+        presenter.removeTracker(item, fromServiceAlso)
     }
 
     private companion object {

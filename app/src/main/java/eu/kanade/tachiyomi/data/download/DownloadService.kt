@@ -4,6 +4,7 @@ import android.app.Notification
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.net.ConnectivityManager
 import android.net.NetworkInfo.State.CONNECTED
 import android.net.NetworkInfo.State.DISCONNECTED
 import android.os.Build
@@ -56,6 +57,7 @@ class DownloadService : Service() {
                 it.downloadStatusChanged(downloading ?: downloadManager.hasQueue())
             }
         }
+
         /**
          * Starts this service.
          *
@@ -176,7 +178,7 @@ class DownloadService : Service() {
     private fun onNetworkStateChanged(connectivity: Connectivity) {
         when (connectivity.state) {
             CONNECTED -> {
-                if (preferences.downloadOnlyOverWifi() && connectivityManager.isActiveNetworkMetered) {
+                if (preferences.downloadOnlyOverWifi() && connectivityManager.activeNetworkInfo?.type != ConnectivityManager.TYPE_WIFI) {
                     downloadManager.stopDownloads(getString(R.string.no_wifi_connection))
                 } else {
                     val started = downloadManager.startDownloads()
