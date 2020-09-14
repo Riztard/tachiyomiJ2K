@@ -221,7 +221,7 @@ dependencies {
     implementation("com.bluelinelabs:conductor-support:2.1.5") {
         exclude("group", "com.android.support")
     }
-    implementation("com.github.inorichi:conductor-support-preference:a32c357")
+    implementation("com.github.tachiyomiorg:conductor-support-preference:1.1.1")
 
     // RxBindings
     implementation("com.jakewharton.rxbinding:rxbinding-kotlin:${Versions.RX_BINDING}")
